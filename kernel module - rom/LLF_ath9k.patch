@@ -1,0 +1,164 @@
+diff -Naur compat-wireless-3.5-rc5-1-snpc.old/drivers/net/wireless/ath/ath9k/init.c compat-wireless-3.5-rc5-1-snpc/drivers/net/wireless/ath/ath9k/init.c
+--- compat-wireless-3.5-rc5-1-snpc.old/drivers/net/wireless/ath/ath9k/init.c	2012-07-05 03:48:01.000000000 +0200
++++ compat-wireless-3.5-rc5-1-snpc/drivers/net/wireless/ath/ath9k/init.c	2012-09-10 16:09:44.000000000 +0200
+@@ -25,6 +25,9 @@
+ 
+ #include "ath9k.h"
+ 
++/* Experimental Link Layer Feedback */
++#include "llf.h"
++
+ static char *dev_info = "ath9k";
+ 
+ MODULE_AUTHOR("Atheros Communications");
+@@ -48,6 +51,10 @@
+ module_param_named(btcoex_enable, ath9k_btcoex_enable, int, 0444);
+ MODULE_PARM_DESC(btcoex_enable, "Enable wifi-BT coexistence");
+ 
++int ath9k_modparam_disable_11n;
++module_param_named(11n_disable, ath9k_modparam_disable_11n, int, 0444);
++MODULE_PARM_DESC(11n_disable, "disable 11n functionality");
++
+ bool is_ath9k_unloaded;
+ /* We use the hw_value as an index into our private channel structure */
+ 
+@@ -245,7 +252,12 @@
+ 	u8 tx_streams, rx_streams;
+ 	int i, max_streams;
+ 
+-	ht_info->ht_supported = true;
++	//ht_info->ht_supported = true;
++	if (ath9k_modparam_disable_11n)
++		ht_info->ht_supported = false;
++	else
++		ht_info->ht_supported = true;
++
+ 	ht_info->cap = IEEE80211_HT_CAP_SUP_WIDTH_20_40 |
+ 		       IEEE80211_HT_CAP_SM_PS |
+ 		       IEEE80211_HT_CAP_SGI_40 |
+@@ -917,6 +929,9 @@
+ 		goto err_pci_exit;
+ 	}
+ 
++	/* Experimental Link Layer Feedback */
++	init_llf();
++
+ 	return 0;
+ 
+  err_pci_exit:
+diff -Naur compat-wireless-3.5-rc5-1-snpc.old/drivers/net/wireless/ath/ath9k/llf.c compat-wireless-3.5-rc5-1-snpc/drivers/net/wireless/ath/ath9k/llf.c
+--- compat-wireless-3.5-rc5-1-snpc.old/drivers/net/wireless/ath/ath9k/llf.c	1970-01-01 01:00:00.000000000 +0100
++++ compat-wireless-3.5-rc5-1-snpc/drivers/net/wireless/ath/ath9k/llf.c	2012-07-20 09:48:39.000000000 +0200
+@@ -0,0 +1,65 @@
++/************************************/
++/* Experimental link layer feedback */
++/************************************/
++
++#include <linux/module.h>
++#include <linux/skbuff.h>
++#include <linux/ip.h>
++#include <linux/if_ether.h>
++#include "llf.h"
++
++void (*llf_callback) (__be32 ip_daddr);
++int llf_enabled;
++
++/* whole init can be skipped if zero-init can be assured */
++void init_llf(void)
++{
++	llf_enabled = 0;
++	llf_callback = NULL;
++}
++
++int register_llf_cb(void (*cbfn) (__be32 ip_daddr))
++{
++	printk(KERN_ALERT "LLF: register callback function\n");
++	llf_callback = cbfn;
++	llf_enabled = 1;
++	return 1;
++}
++EXPORT_SYMBOL_GPL(register_llf_cb);
++
++int unregister_llf_cb(void)
++{
++	printk(KERN_ALERT "LLF: unregister callback function\n");
++	llf_callback = NULL;
++	llf_enabled = 0;
++	return 1;
++}
++EXPORT_SYMBOL_GPL(unregister_llf_cb);
++
++/*void ton_an( u16 tonwert )
++{
++    s8 save;
++
++    if( tonwert ) {
++        tonwert = CLOCK_TICK_RATE/tonwert;
++        printk("ton_an( 0x%x ) test function\n", tonwert );
++        outb( 0xb6, 0x43 );
++        outb_p(tonwert & 0xff, 0x42);
++        outb((tonwert>>8) & 0xff, 0x42);
++        save = inb( 0x61 );
++        outb( save | 0x03, 0x61 );
++    } else {
++        outb(inb_p(0x61) & 0xFC, 0x61);
++    }
++}
++EXPORT_SYMBOL_GPL( ton_an );*/
++
++void send_llf_notification(struct sk_buff *skb)
++{
++	struct iphdr *ip;
++
++	if (ntohs(skb->protocol) == ETH_P_IP) {
++		ip = ip_hdr(skb);
++		llf_callback(ip->daddr);
++	}
++}
+diff -Naur compat-wireless-3.5-rc5-1-snpc.old/drivers/net/wireless/ath/ath9k/llf.h compat-wireless-3.5-rc5-1-snpc/drivers/net/wireless/ath/ath9k/llf.h
+--- compat-wireless-3.5-rc5-1-snpc.old/drivers/net/wireless/ath/ath9k/llf.h	1970-01-01 01:00:00.000000000 +0100
++++ compat-wireless-3.5-rc5-1-snpc/drivers/net/wireless/ath/ath9k/llf.h	2012-07-20 09:48:39.000000000 +0200
+@@ -0,0 +1,16 @@
++#ifndef LLF_H
++#define LLF_H
++
++/* Experimental link layer feedback */
++
++extern void (*llf_callback)(__be32 ip_daddr);
++extern int llf_enabled;
++
++extern void init_llf(void);
++extern int register_llf_cb(void (*cbfn) (__be32 ip_daddr));
++extern int unregister_llf_cb(void);
++extern void send_llf_notification(struct sk_buff *skb);
++
++//extern void ton_an( u16 tonwert );
++
++#endif /* LLF_H */
+diff -Naur compat-wireless-3.5-rc5-1-snpc.old/drivers/net/wireless/ath/ath9k/xmit.c compat-wireless-3.5-rc5-1-snpc/drivers/net/wireless/ath/ath9k/xmit.c
+--- compat-wireless-3.5-rc5-1-snpc.old/drivers/net/wireless/ath/ath9k/xmit.c	2012-07-05 03:48:02.000000000 +0200
++++ compat-wireless-3.5-rc5-1-snpc/drivers/net/wireless/ath/ath9k/xmit.c	2012-07-20 09:48:39.000000000 +0200
+@@ -18,6 +18,9 @@
+ #include "ath9k.h"
+ #include "ar9003_mac.h"
+ 
++/* Experimental Link Layer Feedback */
++#include "llf.h"
++
+ #define BITS_PER_BYTE           8
+ #define OFDM_PLCP_BITS          22
+ #define HT_RC_2_STREAMS(_rc)    ((((_rc) & 0x78) >> 3) + 1)
+@@ -2065,8 +2068,12 @@
+ 	unsigned long flags;
+ 	int tx_flags = 0;
+ 
+-	if (!txok)
++	if (!txok) {
+ 		tx_flags |= ATH_TX_ERROR;
++		/* send link layer feedback for failed transmission */
++		if (llf_enabled)
++			send_llf_notification(skb);
++	}
+ 
+ 	if (ts->ts_status & ATH9K_TXERR_FILT)
+ 		tx_info->flags |= IEEE80211_TX_STAT_TX_FILTERED;
