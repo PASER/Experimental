@@ -1,4 +1,4 @@
-*** COMPILE ***
+*** COMPILE ****
 To compile PASER Daemon you need to install following packages:
 openssl
 libssl
