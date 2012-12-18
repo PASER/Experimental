@@ -47,4 +47,6 @@ Kernel module ROM: rmmod rom.ko
 
 PASER daemon: kill $(cat /tmp/paserd.lock)
 
+Documentation
+--------------
 A thorough documentation of this code is provided at: www.paser.info.
