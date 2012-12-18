@@ -38,8 +38,8 @@ Kernel module - ROM: insmod <PATH>/kmod/rom.ko isGateway=<0|1> enable_llf_suppor
 PASER daemon: <PATH>/PASER/Release/PASER
 
  
-Terminate
----------
+Termination
+------------
 
 KDC: kill $(cat /tmp/kdcd.lock)
 
