@@ -25,14 +25,20 @@ Kernel module - ROUTE-O-MATIC (ROM):  The kernel module supports currently three
 Run
 
 Before running PASER, one node must be set as gateway (see the configuration part) and the KDC must be started on the gateway node or on a secure remote machine connected with the gateway node via a secure channel. Below are the commands to run KDC and PASER:
+
 KDC:  <PATH>/PASER/Release/PASER -r KDC
+
 Kernel module - ROM: insmod <PATH>/kmod/rom.ko isGateway=<0|1> enable_llf_support=<0|1> <LLFPerSecond=<3>>
+
 PASER daemon: <PATH>/PASER/Release/PASER
 
  
 Terminate
+
 KDC: kill $(cat /tmp/kdcd.lock)
+
 Kernel module ROM: rmmod rom.ko
+
 PASER daemon: kill $(cat /tmp/paserd.lock)
 
-A thorough documentation of this code is provided on: www.paser.info.
+A thorough documentation of this code is provided at: www.paser.info.
